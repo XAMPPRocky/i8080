@@ -52,11 +52,10 @@ impl SpaceInvaders {
     }
 
     pub fn emulate(&mut self) {
-        const SLOWDOWN: u64 = 10;
         const NANOS_PER_SEC: u64 = 1_000_000_000;
-        const HERTZ: u64 = 2_000_000 / SLOWDOWN;
+        const HERTZ: u64 = 2_000_000;
         const NANOS_PER_CYCLE: u64 = NANOS_PER_SEC / HERTZ;
-        const INTERRUPT_MILLIS: u64 = 8 * SLOWDOWN;
+        const INTERRUPT_MILLIS: u64 = 8;
 
         let mut cpu = mem::replace(&mut self.cpu, Cpu::new());
         let now = Instant::now();

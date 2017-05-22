@@ -17,7 +17,7 @@ fn main() {
         update(&mut machine, &mut buffer);
 
         let mut window: PistonWindow =
-            WindowSettings::new("SpaceInvaders", [WIDTH, HEIGHT])
+            WindowSettings::new("SpaceInvaders", [HEIGHT, WIDTH])
             .exit_on_esc(true)
             .opengl(OpenGL::V3_2)
             .build()
@@ -39,7 +39,7 @@ fn main() {
         texture.update(&mut window.encoder, &buffer).unwrap();
         window.draw_2d(&e, |c, g| {
             clear([1.0; 4], g);
-            image(&texture, c.transform, g);
+            image(&texture, [[0., 2./HEIGHT as f64, -1.], [2./WIDTH as f64, 0., -1.]], g);
         });
     }
 }

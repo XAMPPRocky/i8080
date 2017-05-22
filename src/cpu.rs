@@ -1038,7 +1038,7 @@ impl Cpu {
 impl Cpu {
 
     fn rst(&mut self, code: u8) -> bool {
-        let ret = self.pc + 2;
+        let ret = self.pc;
         self.memory[self.sp - 1] = (ret >> 8).into();
         self.memory[self.sp - 2] = ret.into();
         self.sp -= 2;
