@@ -1,0 +1,15 @@
+[package]
+name = "i8080"
+version = "0.1.0"
+authors = ["Aaron Power <theaaronepower@gmail.com>"]
+
+[profile.release]
+debug = true
+
+[dependencies]
+clap = "*"
+image = { version = "0.12.0", default-features = false }
+piston_window = "*"
+
+[features]
+cpudiag = []
