@@ -20,7 +20,7 @@ pub struct SpaceInvaders {
     first_port: u8,
     second_port: u8,
     previous: Instant,
-    interrupt_num: u8,
+    interrupt_num: bool,
     next_interrupt: i64,
     overnanos: u64,
 }
@@ -42,7 +42,7 @@ impl SpaceInvaders {
             second_port: 0,
             previous: Instant::now(),
             next_interrupt: 0,
-            interrupt_num: 1,
+            interrupt_num: false,
             overnanos: 0,
         }
     }
@@ -73,33 +73,32 @@ impl SpaceInvaders {
         let mut cycles_passed = 0u64;
 
         let mut cpu = mem::replace(&mut self.cpu, Cpu::new());
-        if cpu.int_enable {
-            while self.next_interrupt < cycles_needed as i64 {
-                while self.next_interrupt > cycles_passed as i64  {
-                    cycles_passed += cpu.emulate(self) as u64;
-                }
-                self.interrupt(&mut cpu);
-                self.next_interrupt += INTERRUPT_CYCLES;
+        while self.next_interrupt < cycles_needed as i64 {
+            while self.next_interrupt > cycles_passed as i64  {
+                cycles_passed += cpu.emulate(self) as u64;
             }
+            self.try_interrupt(&mut cpu);
+            self.next_interrupt += INTERRUPT_CYCLES;
         }
         while cycles_needed > cycles_passed  {
             cycles_passed += cpu.emulate(self) as u64;
         }
         self.next_interrupt -= cycles_passed as i64;
-        self.next_interrupt %= INTERRUPT_CYCLES;
 
         self.overnanos = cycles_passed * NANOS_PER_CYCLE - nanos_needed;
         self.previous = now;
         self.cpu = cpu;
     }
 
-    fn interrupt(&mut self, cpu: &mut Cpu) {
-        if self.interrupt_num == 1 {
+    fn try_interrupt(&mut self, cpu: &mut Cpu) {
+        self.interrupt_num = !self.interrupt_num;
+        if !cpu.int_enable {
+            return;
+        }
+        if self.interrupt_num {
             cpu.interrupt(8);
-            self.interrupt_num = 2;
         } else {
             cpu.interrupt(16);
-            self.interrupt_num = 1;
         }
     }
 
