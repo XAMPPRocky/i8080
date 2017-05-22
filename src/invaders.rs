@@ -1,5 +1,5 @@
 use std::mem;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use piston_window::{Input, Button, Key};
 
@@ -21,7 +21,7 @@ pub struct SpaceInvaders {
     second_port: u8,
     previous: Instant,
     interrupt_num: u8,
-    next_interrupt: Instant,
+    next_interrupt: i64,
     overnanos: u64,
 }
 
@@ -41,7 +41,7 @@ impl SpaceInvaders {
             first_port: 1,
             second_port: 0,
             previous: Instant::now(),
-            next_interrupt: Instant::now(),
+            next_interrupt: 0,
             interrupt_num: 1,
             overnanos: 0,
         }
@@ -55,27 +55,13 @@ impl SpaceInvaders {
         const NANOS_PER_SEC: u64 = 1_000_000_000;
         const HERTZ: u64 = 2_000_000;
         const NANOS_PER_CYCLE: u64 = NANOS_PER_SEC / HERTZ;
-        const INTERRUPT_MILLIS: u64 = 8;
+        const INTERRUPT_CYCLES: i64 = 2_000 * 8; //2_000_000Hz * 8ms
 
-        let mut cpu = mem::replace(&mut self.cpu, Cpu::new());
         let now = Instant::now();
-
-        if cpu.int_enable && now >= self.next_interrupt {
-            if self.interrupt_num == 1 {
-                cpu.interrupt(8);
-                self.interrupt_num = 2;
-            } else {
-                cpu.interrupt(16);
-                self.interrupt_num = 1;
-            }
-            self.next_interrupt = now + Duration::from_millis(INTERRUPT_MILLIS);
-        }
-
         let duration = now.duration_since(self.previous);
         let nanos_needed = (duration.as_secs() * NANOS_PER_SEC) + (duration.subsec_nanos() as u64);
 
         if nanos_needed <= self.overnanos {
-            self.cpu = cpu;
             return;
         }
 
@@ -84,14 +70,37 @@ impl SpaceInvaders {
 
         let cycles_needed = (nanos_needed + NANOS_PER_CYCLE - 1) / NANOS_PER_CYCLE;
 
-        let mut cycles_passed = 0;
+        let mut cycles_passed = 0u64;
+
+        let mut cpu = mem::replace(&mut self.cpu, Cpu::new());
+        if cpu.int_enable {
+            while self.next_interrupt < cycles_needed as i64 {
+                while self.next_interrupt > cycles_passed as i64  {
+                    cycles_passed += cpu.emulate(self) as u64;
+                }
+                self.interrupt(&mut cpu);
+                self.next_interrupt += INTERRUPT_CYCLES;
+            }
+        }
         while cycles_needed > cycles_passed  {
             cycles_passed += cpu.emulate(self) as u64;
         }
+        self.next_interrupt -= cycles_passed as i64;
+        self.next_interrupt %= INTERRUPT_CYCLES;
 
         self.overnanos = cycles_passed * NANOS_PER_CYCLE - nanos_needed;
         self.previous = now;
         self.cpu = cpu;
+    }
+
+    fn interrupt(&mut self, cpu: &mut Cpu) {
+        if self.interrupt_num == 1 {
+            cpu.interrupt(8);
+            self.interrupt_num = 2;
+        } else {
+            cpu.interrupt(16);
+            self.interrupt_num = 1;
+        }
     }
 
     pub fn handle_event(&mut self, event: &Input) {
