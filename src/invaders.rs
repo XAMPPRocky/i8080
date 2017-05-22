@@ -80,10 +80,10 @@ impl SpaceInvaders {
             return;
         }
 
-        let nanos_needed = nanos_needed - self.overnanos;
-
         // never execute more than 1 second worth of work at once
-        let cycles_needed = ::std::cmp::min(HERTZ, (nanos_needed + NANOS_PER_CYCLE - 1) / NANOS_PER_CYCLE);
+        let nanos_needed = ::std::cmp::min(nanos_needed - self.overnanos, NANOS_PER_SEC);
+
+        let cycles_needed = (nanos_needed + NANOS_PER_CYCLE - 1) / NANOS_PER_CYCLE;
 
         let mut cycles_passed = 0;
         while cycles_needed > cycles_passed  {
