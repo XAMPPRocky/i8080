@@ -21,8 +21,8 @@ pub struct SpaceInvaders {
     second_port: u8,
     previous: Instant,
     interrupt_num: u8,
-    next_interrupt: Duration,
-    overcycles: u64,
+    next_interrupt: Instant,
+    overnanos: u64,
 }
 
 impl SpaceInvaders {
@@ -41,9 +41,9 @@ impl SpaceInvaders {
             first_port: 1,
             second_port: 0,
             previous: Instant::now(),
-            next_interrupt: Duration::new(0, 16 * 1000),
+            next_interrupt: Instant::now(),
             interrupt_num: 1,
-            overcycles: 0,
+            overnanos: 0,
         }
     }
 
@@ -52,15 +52,16 @@ impl SpaceInvaders {
     }
 
     pub fn emulate(&mut self) {
-        const HERTZ: u64 = 2_000_000;
-        const NANOS_PER_CYCLE: u64 = 1_000_000_000 / HERTZ;
-        const MIN_CYCLE_CHUNK: u64 = 5000;
+        const SLOWDOWN: u64 = 10;
+        const NANOS_PER_SEC: u64 = 1_000_000_000;
+        const HERTZ: u64 = 2_000_000 / SLOWDOWN;
+        const NANOS_PER_CYCLE: u64 = NANOS_PER_SEC / HERTZ;
+        const INTERRUPT_MILLIS: u64 = 8 * SLOWDOWN;
 
         let mut cpu = mem::replace(&mut self.cpu, Cpu::new());
         let now = Instant::now();
-        let duration = now.duration_since(self.previous);
 
-        if cpu.int_enable && duration > self.next_interrupt {
+        if cpu.int_enable && now >= self.next_interrupt {
             if self.interrupt_num == 1 {
                 cpu.interrupt(8);
                 self.interrupt_num = 2;
@@ -68,32 +69,28 @@ impl SpaceInvaders {
                 cpu.interrupt(16);
                 self.interrupt_num = 1;
             }
+            self.next_interrupt = now + Duration::from_millis(INTERRUPT_MILLIS);
         }
 
-        let cycles_needed = (duration.as_secs() * HERTZ) +
-                            (duration.subsec_nanos() as u64 / NANOS_PER_CYCLE);
+        let duration = now.duration_since(self.previous);
+        let nanos_needed = (duration.as_secs() * NANOS_PER_SEC) + (duration.subsec_nanos() as u64);
 
-        if cycles_needed <= self.overcycles {
+        if nanos_needed <= self.overnanos {
             self.cpu = cpu;
             return;
         }
 
-        let cycles_needed = cycles_needed - self.overcycles;
-
-        if cycles_needed < MIN_CYCLE_CHUNK {
-            self.cpu = cpu;
-            return;
-        }
+        let nanos_needed = nanos_needed - self.overnanos;
 
         // never execute more than 1 second worth of work at once
-        let cycles_needed = ::std::cmp::min(HERTZ, cycles_needed);
+        let cycles_needed = ::std::cmp::min(HERTZ, (nanos_needed + NANOS_PER_CYCLE - 1) / NANOS_PER_CYCLE);
 
         let mut cycles_passed = 0;
         while cycles_needed > cycles_passed  {
             cycles_passed += cpu.emulate(self) as u64;
         }
 
-        self.overcycles = cycles_passed - cycles_needed;
+        self.overnanos = cycles_passed * NANOS_PER_CYCLE - nanos_needed;
         self.previous = now;
         self.cpu = cpu;
     }
