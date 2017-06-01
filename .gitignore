@@ -1,5 +1,6 @@
 target
-inv
-invaders
+invaders/game/**
+invaders/sound/**
+manuals
 .DS_Store
 *.COM

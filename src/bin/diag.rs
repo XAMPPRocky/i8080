@@ -32,7 +32,6 @@ fn main() {
 
 
     loop {
-
         if false {
             breakpoint = true;
         }
@@ -43,7 +42,6 @@ fn main() {
             ::std::io::stdin().read_line(&mut String::new()).unwrap();
         }
 
-        cpu.print_opcode();
         cpu.emulate(&mut Facade);
     }
 }

@@ -1,5 +1,4 @@
 use std::{fmt, mem};
-use std::collections::BTreeSet;
 
 use condition_codes::ConditionCodes;
 use opcode::Opcode;
@@ -21,7 +20,6 @@ pub struct Cpu {
     pub memory: Memory,
     pub conditions: ConditionCodes,
     pub int_enable: bool,
-    executed_instructions: BTreeSet<Opcode>,
 }
 
 pub trait Machine {
@@ -55,9 +53,7 @@ impl Cpu {
     }
 
     pub fn load_into_rom(&mut self, memory: &[u8], position: u16) {
-        for (byte, pos) in memory.iter().zip(position..) {
-            self.memory[pos] = *byte;
-        }
+        self.memory.load(memory, position);
     }
 
     pub fn emulate<M: Machine>(&mut self, machine: &mut M) -> u8 {
@@ -65,7 +61,6 @@ impl Cpu {
         let opcode = Opcode::from(self.memory[pc]);
         let mut jumped = false;
 
-        self.executed_instructions.insert(opcode);
 
         match *opcode {
             0x00 | 0x08 | 0x20 | 0x28 | 0x30 | 0x38 => {}
@@ -181,9 +176,6 @@ impl Cpu {
             0xfe => self.cpi(),
 
             code => {
-                for i in &self.executed_instructions {
-                    println!("{:?}", i);
-                }
                 panic!("Unimplemented INSTRUCTION {:?}", Opcode::from(code));
             }
 
@@ -203,7 +195,7 @@ impl Cpu {
 
     fn set_offset<I: Into<u8>>(&mut self, value: I) {
         let offset = ((self.h.to_u16()) << 8) | self.l.to_u16();
-        self.memory[offset] = value.into();
+        self.memory.write(offset, value);
     }
 
     fn get_d8(&self) -> u8 {
@@ -356,7 +348,7 @@ impl Cpu {
         macro_rules! stax {
             ($x:ident $y:ident) => {{
                 let x = (self.$x.to_u16() << 8) | self.$y.to_u16();
-                self.memory[x] = *self.a;
+                self.memory.write(x, self.a);
             }}
         }
         match code {
@@ -388,8 +380,17 @@ impl Cpu {
     }
 
     fn xthl(&mut self) {
-        mem::swap(&mut self.h.0, &mut self.memory[self.sp + 1]);
-        mem::swap(&mut self.l.0, &mut self.memory[self.sp]);
+        let new_h = self.memory[self.sp + 1];
+        let new_l = self.memory[self.sp];
+
+        let old_h = *self.h;
+        let old_l = *self.l;
+
+        self.h = new_h.into();
+        self.l = new_l.into();
+
+        self.memory.write(self.sp + 1, old_h);
+        self.memory.write(self.sp, old_l);
     }
 }
 
@@ -445,7 +446,7 @@ impl Cpu {
 
         self.a = answer.into();
 
-        self.conditions.set_all(answer, (*lhs & 0xf).wrapping_add(*rhs & 0xf));
+        self.conditions.set_all(answer, (*lhs & 0xf) + (*rhs & 0xf));
     }
 
     fn adc(&mut self, code: u8) {
@@ -461,7 +462,7 @@ impl Cpu {
 
     fn adi(&mut self) {
         let lhs = self.a.to_u16();
-        let rhs = self.get_d16() as u16;
+        let rhs = self.get_d8() as u16;
         let answer = lhs.wrapping_add(rhs);
 
         self.conditions.set_all(answer, (lhs as u8 & 0xf).wrapping_add(rhs as u8 & 0xf));
@@ -601,14 +602,7 @@ impl Cpu {
         match code {
             0x09 => dad!(b, c),
             0x19 => dad!(d, e),
-            0x29 => {
-                let mut hl = ((self.h.to_u16()) << 8) | self.l.to_u16();
-                hl <<= 1;
-
-                self.conditions.set_cy(hl);
-                self.h = (hl >> 8).into();
-                self.l = hl.into();
-            }
+            0x29 => dad!(h, l),
             0x39 => {
                 let mut hl = (self.h.to_u16() << 8) | self.l.to_u16();
                 hl = hl.wrapping_add(*self.sp);
@@ -637,7 +631,7 @@ impl Cpu {
         let least = answer & 0xf;
         let mut most = (answer >> 4) & 0xf;
 
-        if self.conditions.cy ||  most > 9 {
+        if self.conditions.cy || most > 9 {
             most += 6;
         }
 
@@ -731,8 +725,8 @@ impl Cpu {
             ::std::process::exit(0)
         } else {
             let ret = *self.pc + 3;
-            self.memory[self.sp - 1] = (ret >> 8) as u8;
-            self.memory[self.sp - 2] = ret as u8;
+            self.memory.write(self.sp - 1, (ret >> 8) as u8);
+            self.memory.write(self.sp - 2, ret as u8);
             self.sp -= 2;
             self.jump();
             true
@@ -954,7 +948,7 @@ impl Cpu {
             _ => unreachable!(),
         };
 
-        self.conditions.set_all_except_ac(self.a.to_u16());
+        self.conditions.set_all(self.a.to_u16(), 0);
     }
 
     fn ori(&mut self) {
@@ -983,8 +977,8 @@ impl Cpu {
     fn shld(&mut self) {
         let addr = self.get_d16();
 
-        self.memory[addr] = *self.l;
-        self.memory[addr + 1] = *self.h;
+        self.memory.write(addr, self.l);
+        self.memory.write(addr + 1, *self.h);
     }
 
     fn lhld(&mut self) {
@@ -1000,7 +994,7 @@ impl Cpu {
 
     fn sta(&mut self) {
         let adr = self.get_d16();
-        self.memory[adr] = *self.a;
+        self.memory.write(adr, self.a);
     }
 
     fn cpi(&mut self) {
@@ -1039,8 +1033,8 @@ impl Cpu {
 
     fn rst(&mut self, code: u8) -> bool {
         let ret = self.pc;
-        self.memory[self.sp - 1] = (ret >> 8).into();
-        self.memory[self.sp - 2] = ret.into();
+        self.memory.write(self.sp - 1, (ret >> 8));
+        self.memory.write(self.sp - 2, ret);
         self.sp -= 2;
         self.pc = (code & 0x38).into();
         true
@@ -1054,8 +1048,8 @@ impl Cpu {
     fn push(&mut self, code: u8) {
         macro_rules! push {
             ($x:ident $y:ident) => {{
-                self.memory[self.sp - 1] = self.$x.into();
-                self.memory[self.sp - 2] = self.$y.into();
+                self.memory.write(self.sp - 1, self.$x);
+                self.memory.write(self.sp - 2, self.$y);
                 self.sp -= 2;
             }}
         }
@@ -1126,8 +1120,7 @@ mod tests {
         let mut cpu = Cpu::new();
 
         cpu.a = 0xf2u8.into();
-        cpu.memory[0] = 0x0f;
-
+        cpu.load_into_rom(&[0x0f], 0);
         cpu.emulate(&mut Facade);
 
         assert_eq!(cpu.a, 0x79);
@@ -1138,18 +1131,14 @@ mod tests {
         let mut cpu = Cpu::new();
 
         cpu.a = 0u16.into();
-        cpu.memory[0] = 0xc6;
-        cpu.memory[1] = 6;
-
+        cpu.load_into_rom(&[0xc6, 6], 0);
         cpu.emulate(&mut Facade);
 
         assert_eq!(cpu.a, 6);
-
         assert!(!cpu.conditions.cy);
         assert!(cpu.conditions.p);
         assert!(!cpu.conditions.s);
         assert!(!cpu.conditions.z);
-
     }
 
     #[test]
@@ -1157,7 +1146,7 @@ mod tests {
         let mut cpu = Cpu::new();
 
         cpu.a = 0x9bu16.into();
-        cpu.memory[0] = 0x27;
+        cpu.load_into_rom(&[0x27], 0);
 
         cpu.emulate(&mut Facade);
 
@@ -1173,13 +1162,42 @@ mod tests {
         let mut cpu = Cpu::new();
 
         cpu.a = 0xb5u16.into();
-        cpu.memory[0] = 0x17;
+        cpu.load_into_rom(&[0x17], 0);
 
         cpu.emulate(&mut Facade);
 
         assert_eq!(cpu.a, 0x6a);
         assert!(cpu.conditions.cy);
 
+    }
+
+    #[test]
+    fn rlc() {
+        let mut cpu = Cpu::new();
+
+        cpu.load_into_rom(&[0x07], 0);
+
+        cpu.a = 0xf2u8.into();
+
+        cpu.emulate(&mut Facade);
+
+        assert_eq!(*cpu.a, 0xe5);
+        assert!(cpu.conditions.cy);
+    }
+
+    #[test]
+    fn rar() {
+        let mut cpu = Cpu::new();
+
+        cpu.load_into_rom(&[0x1f], 0);
+
+        cpu.a = 0x6au8.into();
+        cpu.conditions.cy = true;
+
+        cpu.emulate(&mut Facade);
+
+        assert_eq!(*cpu.a, 0xb5);
+        assert!(!cpu.conditions.cy);
     }
 
     #[test]
@@ -1194,9 +1212,7 @@ mod tests {
                 cpu.$x = $x;
                 cpu.$y = $y;
 
-                cpu.memory[0] = $push;
-                cpu.memory[1] = $pop;
-
+                cpu.load_into_rom(&[$push, $pop], 0);
                 cpu.emulate(&mut Facade);
 
                 cpu.$x = 0u8.into();

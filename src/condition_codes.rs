@@ -112,19 +112,3 @@ impl fmt::Debug for ConditionCodes {
         dot!(cy)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let mut codes = ConditionCodes::default();
-        codes.set_all(0x1f5);
-
-        assert!(codes.cy);
-        assert!(codes.p);
-        assert!(codes.s);
-        assert!(!codes.z)
-    }
-}

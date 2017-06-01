@@ -37,7 +37,7 @@ fn main() {
         machine.handle_event(&e);
 
         texture.update(&mut window.encoder, &buffer).unwrap();
-        window.draw_2d(&e, |c, g| {
+        window.draw_2d(&e, |_, g| {
             clear([1.0; 4], g);
             image(&texture, [[0., 2./HEIGHT as f64, -1.], [2./WIDTH as f64, 0., -1.]], g);
         });
