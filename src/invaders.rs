@@ -7,10 +7,10 @@ use piston_window::{Input, Button, Key, ButtonArgs, ButtonState};
 use cpu::{Cpu, Machine};
 
 const FILE_POSITIONS: [(&'static [u8; 2048], u16); 4] = [
-    (include_bytes!("../invaders/game/invaders.h"), 0),
-    (include_bytes!("../invaders/game/invaders.g"), 0x800),
-    (include_bytes!("../invaders/game/invaders.f"), 0x1000),
-    (include_bytes!("../invaders/game/invaders.e"), 0x1800),
+    (include_bytes!("../games/invaders/src/invaders.h"), 0),
+    (include_bytes!("../games/invaders/src/invaders.g"), 0x800),
+    (include_bytes!("../games/invaders/src/invaders.f"), 0x1000),
+    (include_bytes!("../games/invaders/src/invaders.e"), 0x1800),
 ];
 
 thread_local! {
@@ -39,18 +39,18 @@ impl Sounds {
     fn new() -> Self {
         Sounds {
             ufo: {
-                let mut sound = Sound::new("invaders/sound/0.wav").expect("0.wav not found");
+                let mut sound = Sound::new("games/invaders/sound/0.wav").expect("0.wav not found");
                 sound.set_looping(true);
                 sound
             },
-            shot: Sound::new("invaders/sound/1.wav").expect("1.wav not found"),
-            flash: Sound::new("invaders/sound/2.wav").expect("2.wav not found"),
-            enemy_death: Sound::new("invaders/sound/3.wav").expect("3.wav not found"),
-            first_movement: Sound::new("invaders/sound/4.wav").expect("4.wav not found"),
-            second_movement: Sound::new("invaders/sound/5.wav").expect("5.wav not found"),
-            third_movement: Sound::new("invaders/sound/6.wav").expect("6.wav not found"),
-            fourth_movement: Sound::new("invaders/sound/7.wav").expect("7.wav not found"),
-            ufo_hit: Sound::new("invaders/sound/8.wav").expect("8.wav not found"),
+            shot: Sound::new("games/invaders/sound/1.wav").expect("1.wav not found"),
+            flash: Sound::new("games/invaders/sound/2.wav").expect("2.wav not found"),
+            enemy_death: Sound::new("games/invaders/sound/3.wav").expect("3.wav not found"),
+            first_movement: Sound::new("games/invaders/sound/4.wav").expect("4.wav not found"),
+            second_movement: Sound::new("games/invaders/sound/5.wav").expect("5.wav not found"),
+            third_movement: Sound::new("games/invaders/sound/6.wav").expect("6.wav not found"),
+            fourth_movement: Sound::new("games/invaders/sound/7.wav").expect("7.wav not found"),
+            ufo_hit: Sound::new("games/invaders/sound/8.wav").expect("8.wav not found"),
         }
     }
 }
