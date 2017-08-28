@@ -41,3 +41,11 @@ them in `games/invaders/src`. It should should be four files like
 In order to run space invaders you need to have the audio files in
 `games/invaders/sound`. They should be `wav` and in the format `0.wav 1.wav` up
 to `8.wav`.
+
+### Controls
+
+- Left -> Left arrow or A
+- Right -> Right arrow or D
+- Credit -> C
+- Fire -> Space or F
+- P1 START -> 1
