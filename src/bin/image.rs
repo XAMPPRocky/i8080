@@ -34,7 +34,9 @@ fn main() {
     while let Some(e) = window.next() {
         update(&mut machine, &mut buffer);
 
-        machine.handle_event(&e);
+        if let Event::Input(ref i) = e {
+            machine.handle_event(i);
+        }
 
         texture.update(&mut window.encoder, &buffer).unwrap();
         window.draw_2d(&e, |_, g| {
@@ -50,12 +52,17 @@ fn update(machine: &mut SpaceInvaders, buffer: &mut RgbaImage) {
     for (i, byte) in machine.framebuffer().iter().enumerate() {
         const SHIFT_END: u8 = 7;
 
+        // Really x is y and y is x as the frame is rotated 90 degrees
         let y = i * 8 / (WIDTH as usize + 1);
         for shift in 0..SHIFT_END + 1 {
             let x = ((i * 8) % (WIDTH as usize)) + shift as usize;
 
             let pixel = if (byte >> shift) & 1 == 0 {
                 [0, 0, 0, 255]
+            } else if x <= 63 && (x >= 15 || x <= 15 && y >= 20 && y <= 120) {
+                [0, 255, 0, 255]
+            } else if x >= 200 && x <= 220 {
+                [255, 0, 0, 255]
             } else {
                 [255; 4]
             };

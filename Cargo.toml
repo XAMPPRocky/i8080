@@ -3,13 +3,11 @@ name = "i8080"
 version = "0.1.0"
 authors = ["Aaron Power <theaaronepower@gmail.com>"]
 
-[profile.release]
-debug = true
-
 [dependencies]
-clap = "*"
-image = { version = "0.12.0", default-features = false }
-piston_window = "*"
+clap = "2.26"
+ears = "0.4"
+image = { version = "0.15", default-features = false }
+piston_window = "0.70"
 
 [features]
 cpudiag = []

@@ -1,14 +1,16 @@
+extern crate ears;
 extern crate piston_window;
-mod condition_codes;
-mod opcode;
-mod cpu;
-mod memory;
-mod register;
-mod invaders;
-mod num_impls;
-mod pointer;
 
-pub use opcode::Opcode;
+mod condition_codes;
+mod cpu;
+mod invaders;
+mod memory;
+mod num_impls;
+mod opcode;
+mod pointer;
+mod register;
+
 pub use cpu::*;
 pub use invaders::*;
+pub use opcode::Opcode;
 

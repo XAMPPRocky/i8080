@@ -1,7 +1,8 @@
-use std::{cmp, mem};
 use std::time::Instant;
+use std::{cmp, mem};
 
-use piston_window::{Input, Button, Key};
+use ears::{AudioController, Sound};
+use piston_window::{Input, Button, Key, ButtonArgs, ButtonState};
 
 use cpu::{Cpu, Machine};
 
@@ -12,24 +13,62 @@ const FILE_POSITIONS: [(&'static [u8; 2048], u16); 4] = [
     (include_bytes!("../invaders/game/invaders.e"), 0x1800),
 ];
 
+thread_local! {
+}
+
 const CREDIT: u8 = 0x1;
 const FIRE: u8 = 0x10;
 const LEFT: u8 = 0x20;
-const RIGHT: u8 = 0x40;
 const P1_START: u8 = 0x4;
 const P2_START: u8 = 0x2;
+const RIGHT: u8 = 0x40;
+
+struct Sounds {
+    ufo: Sound,
+    shot: Sound,
+    flash: Sound,
+    enemy_death: Sound,
+    first_movement: Sound,
+    second_movement: Sound,
+    third_movement: Sound,
+    fourth_movement: Sound,
+    ufo_hit: Sound,
+}
+
+impl Sounds {
+    fn new() -> Self {
+        Sounds {
+            ufo: {
+                let mut sound = Sound::new("invaders/sound/0.wav").expect("0.wav not found");
+                sound.set_looping(true);
+                sound
+            },
+            shot: Sound::new("invaders/sound/1.wav").expect("1.wav not found"),
+            flash: Sound::new("invaders/sound/2.wav").expect("2.wav not found"),
+            enemy_death: Sound::new("invaders/sound/3.wav").expect("3.wav not found"),
+            first_movement: Sound::new("invaders/sound/4.wav").expect("4.wav not found"),
+            second_movement: Sound::new("invaders/sound/5.wav").expect("5.wav not found"),
+            third_movement: Sound::new("invaders/sound/6.wav").expect("6.wav not found"),
+            fourth_movement: Sound::new("invaders/sound/7.wav").expect("7.wav not found"),
+            ufo_hit: Sound::new("invaders/sound/8.wav").expect("8.wav not found"),
+        }
+    }
+}
 
 pub struct SpaceInvaders {
-    pub cpu: Cpu,
+    cpu: Cpu,
+    first_port: u8,
+    interrupt_num: bool,
+    last_port_five: u8,
+    last_port_three: u8,
+    next_interrupt: i64,
+    overnanos: u64,
+    previous: Instant,
+    second_port: u8,
     shift_offset: u16,
     shiftx: u8,
     shifty: u8,
-    first_port: u8,
-    second_port: u8,
-    previous: Instant,
-    interrupt_num: bool,
-    next_interrupt: i64,
-    overnanos: u64,
+    sounds: Sounds,
 }
 
 impl SpaceInvaders {
@@ -51,6 +90,9 @@ impl SpaceInvaders {
             next_interrupt: 0,
             interrupt_num: false,
             overnanos: 0,
+            last_port_three: 0,
+            last_port_five: 0,
+            sounds: Sounds::new(),
         }
     }
 
@@ -113,8 +155,16 @@ impl SpaceInvaders {
 
     pub fn handle_event(&mut self, event: &Input) {
         match *event {
-            Input::Press(Button::Keyboard(key)) => self.keydown(key),
-            Input::Release(Button::Keyboard(key)) => self.keyup(key),
+            Input::Button(ButtonArgs {
+                state: ButtonState::Press,
+                button: Button::Keyboard(key),
+                scancode: _,
+            }) => self.keydown(key),
+            Input::Button(ButtonArgs {
+                state: ButtonState::Release,
+                button: Button::Keyboard(key),
+                scancode: _,
+            }) => self.keyup(key),
             _ => {}
         }
     }
@@ -127,7 +177,6 @@ impl SpaceInvaders {
             Key::Space | Key::F => self.first_port |= FIRE,
             Key::D1 => self.first_port |= P1_START,
             Key::D2 => self.first_port |= P2_START,
-            Key::P => println!("{:#?}", self.cpu.executed_instructions),
             _ => {}
         }
     }
@@ -160,16 +209,80 @@ impl Machine for SpaceInvaders {
     }
 
     fn output(&mut self, port: u8, byte: u8) {
+        macro_rules! play {
+            ($sound:ident) => {
+                if !self.sounds.$sound.is_playing() {
+                    self.sounds.$sound.play();
+                }
+            }
+        }
+
         match port {
             2 => {
                 self.shift_offset = byte as u16;
             }
-            3 => {}
+            3 => {
+                macro_rules! changed {
+                    ($position:expr) => {
+                        (self.last_port_three & $position) ^ (byte & $position) > 0
+                    }
+                }
+
+                if changed!(0x1) {
+                    if !self.sounds.ufo.is_playing() {
+                        self.sounds.ufo.play();
+                    } else {
+                        self.sounds.ufo.stop();
+                    }
+                }
+
+                if changed!(0x2) {
+                    play!(shot);
+                }
+
+                if changed!(0x4) {
+                    play!(flash);
+                }
+
+                if changed!(0x8) {
+                    play!(enemy_death);
+                }
+
+                self.last_port_three = byte;
+            }
             4 => {
                 self.shiftx = self.shifty;
                 self.shifty = byte;
             }
-            5 => {}
+            5 => {
+                macro_rules! changed {
+                    ($position:expr) => {
+                        (self.last_port_five & $position) ^ (byte & $position) > 0
+                    }
+                }
+
+                if changed!(0x1) {
+                    play!(first_movement);
+                }
+
+                if changed!(0x2) {
+                    play!(second_movement);
+                }
+
+                if changed!(0x4) {
+                    play!(third_movement);
+                }
+
+                if changed!(0x8) {
+                    play!(fourth_movement);
+                }
+
+                if changed!(0x10) {
+                    play!(ufo_hit);
+                }
+
+                self.last_port_five = byte;
+            }
             6 => {}
 
             code => panic!("Unimplemented OUTPUT PORT {:?}", code),
