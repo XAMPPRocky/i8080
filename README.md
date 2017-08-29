@@ -6,19 +6,8 @@ i8080 - An Intel 8080 emulator in Rust
 
 ![](invaders.gif)
 
-
-Dependencies
-------------
-
-In order to use this program you need have OpenAL and libsndfile installed.
-
-- [Linux instructions](https://github.com/jhasse/ears#linux)
-- [Mac instructions](https://github.com/jhasse/ears#mac)
-- [Windows instructions](https://github.com/jhasse/ears#windows)
-
-
-How to run
-----------
+How to run games
+----------------
 
 Before you can run individual games you need to get game and sound files you can
 see the specific requirements for games below. Once you have the files it's just
@@ -36,6 +25,14 @@ Currently supported games
 
 Space Invaders
 --------------
+
+### Dependencies
+
+In order to use to play Space Invaders you need have OpenAL and libsndfile installed.
+
+- [Linux instructions](https://github.com/jhasse/ears#linux)
+- [Mac instructions](https://github.com/jhasse/ears#mac)
+- [Windows instructions](https://github.com/jhasse/ears#windows)
 
 In order to build the project you need access to MAME Space Invaders and place
 them in `games/invaders/src`. It should should be four files like
