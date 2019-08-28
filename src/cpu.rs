@@ -1033,7 +1033,7 @@ impl Cpu {
 
     fn rst(&mut self, code: u8) -> bool {
         let ret = self.pc;
-        self.memory.write(self.sp - 1, (ret >> 8));
+        self.memory.write(self.sp - 1, ret >> 8);
         self.memory.write(self.sp - 2, ret);
         self.sp -= 2;
         self.pc = (code & 0x38).into();
