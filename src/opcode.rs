@@ -329,7 +329,6 @@ impl fmt::Debug for Opcode {
             0xfd => "0xfd",
             0xfe => "CPI",
             0xff => "RST 7",
-            _ => unreachable!(),
         };
 
         write!(f, "{}", op)
