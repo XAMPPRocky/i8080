@@ -13,8 +13,10 @@ Before you can run individual games you need to get game and sound files you can
 see the specific requirements for games below. Once you have the files it's just
 a matter running the binary for the game from the `src/bin/` directory like so.
 
+**Requires Rust 1.20.0**
+
 ```
-cargo run --release --bin invaders
+cargo +1.20.0 run --release --bin invaders
 ```
 
 Currently supported games
