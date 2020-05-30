@@ -13,7 +13,7 @@ version = "0.1.0"
 clap = "2.26"
 ears = "0.4"
 image = { version = "0.15", default-features = false }
-piston_window = "0.70"
+piston_window = "0.105"
 
 [features]
 cpudiag = []
