@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "ears"
-version = "0.4.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -438,7 +438,7 @@ name = "i8080"
 version = "0.1.0"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ears 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ears 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston_window 0.70.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1414,7 +1414,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum draw_state 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "337aeb4ca88f60f29e2e01ff252ac4eb40b9a86c65f699bdf4c7e3944390cea9"
 "checksum dtoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ea57b42383d091c85abcc2706240b94ab2a8fa1fc81c10ff23c4de06e2a90b5e"
 "checksum dwmapi-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b44b6442aeab12e609aee505bd1066bdfd36b79c3fe5aad604aae91537623e76"
-"checksum ears 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d7c8bc562dacc4221be0fd025fa58471886a4ebd31fdbb4017ee47419bebdc22"
+"checksum ears 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8d5948e26b1fd64bd20c09784e76286b40d2b865bbbf85c9c8378d2474b09c01"
 "checksum either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5527cfe0d098f36e3f8839852688e63c8fff1c90b2b405aef730615f9a7bcf7b"
 "checksum enum_primitive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "be4551092f4d519593039259a9ed8daedf0da12e5109c5280338073eaeb81180"
 "checksum fs2 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "bcd414e5a1a979b931bb92f41b7a54106d3f6d2e6c253e9ce943b7cd468251ef"

@@ -11,7 +11,7 @@ version = "0.1.0"
 
 [dependencies]
 clap = "2.26"
-ears = "0.4"
+ears = "0.7"
 image = { version = "0.15", default-features = false }
 piston_window = "0.70"
 
