@@ -1,25 +1,18 @@
-extern crate i8080;
-extern crate piston_window;
-extern crate image;
-extern crate ears;
-
+use kira::{manager::AudioManager, sound::handle::SoundHandle};
+use winit::{dpi::LogicalSize, event::{KeyboardInput, VirtualKeyCode, Event, WindowEvent}, event_loop::{EventLoop, ControlFlow}, window::WindowBuilder};
+use pixels::{Pixels, SurfaceTexture};
 use i8080::*;
-use image::RgbaImage;
-use piston_window::*;
 
 use std::time::Instant;
 use std::{cmp, mem};
 
-use ears::{AudioController, Sound};
-use piston_window::{Input, Button, Key, ButtonArgs, ButtonState};
-
-const HEIGHT: u32 = 224;
-const WIDTH: u32 = 256;
+const WIDTH: u32 = 224;
+const HEIGHT: u32 = 256;
 const FILE_POSITIONS: [(&'static [u8; 2048], u16); 4] = [
-    (include_bytes!("../../games/invaders/src/invaders.h"), 0),
-    (include_bytes!("../../games/invaders/src/invaders.g"), 0x800),
-    (include_bytes!("../../games/invaders/src/invaders.f"), 0x1000),
-    (include_bytes!("../../games/invaders/src/invaders.e"), 0x1800),
+    (include_bytes!("../../games/invaders/invaders.h"), 0),
+    (include_bytes!("../../games/invaders/invaders.g"), 0x800),
+    (include_bytes!("../../games/invaders/invaders.f"), 0x1000),
+    (include_bytes!("../../games/invaders/invaders.e"), 0x1800),
 ];
 
 const CREDIT: u8 = 0x1;
@@ -30,6 +23,8 @@ const P2_START: u8 = 0x2;
 const RIGHT: u8 = 0x40;
 
 struct Sounds {
+    #[allow(unused)]
+    manager: AudioManager,
     ufo: Sound,
     shot: Sound,
     flash: Sound,
@@ -43,21 +38,47 @@ struct Sounds {
 
 impl Sounds {
     fn new() -> Self {
-        Sounds {
-            ufo: {
-                let mut sound = Sound::new("games/invaders/sound/0.wav").expect("0.wav not found");
-                sound.set_looping(true);
-                sound
-            },
-            shot: Sound::new("games/invaders/sound/1.wav").expect("1.wav not found"),
-            flash: Sound::new("games/invaders/sound/2.wav").expect("2.wav not found"),
-            enemy_death: Sound::new("games/invaders/sound/3.wav").expect("3.wav not found"),
-            first_movement: Sound::new("games/invaders/sound/4.wav").expect("4.wav not found"),
-            second_movement: Sound::new("games/invaders/sound/5.wav").expect("5.wav not found"),
-            third_movement: Sound::new("games/invaders/sound/6.wav").expect("6.wav not found"),
-            fourth_movement: Sound::new("games/invaders/sound/7.wav").expect("7.wav not found"),
-            ufo_hit: Sound::new("games/invaders/sound/8.wav").expect("8.wav not found"),
+        let mut manager = AudioManager::new(<_>::default()).unwrap();
+        Self {
+            ufo: Sound::new("games/invaders/sounds/ufo_lowpitch.wav", &mut manager),
+            shot: Sound::new("games/invaders/sounds/shoot.wav", &mut manager),
+            flash: Sound::new("games/invaders/sounds/explosion.wav", &mut manager),
+            enemy_death: Sound::new("games/invaders/sounds/invaderkilled.wav", &mut manager),
+            first_movement: Sound::new("games/invaders/sounds/fastinvader1.wav", &mut manager),
+            second_movement: Sound::new("games/invaders/sounds/fastinvader2.wav", &mut manager),
+            third_movement: Sound::new("games/invaders/sounds/fastinvader3.wav", &mut manager),
+            fourth_movement: Sound::new("games/invaders/sounds/fastinvader4.wav", &mut manager),
+            ufo_hit: Sound::new("games/invaders/sounds/ufo_lowpitch.wav", &mut manager),
+            manager,
         }
+    }
+}
+
+pub struct Sound {
+    sound: SoundHandle,
+    instance: Option<kira::instance::handle::InstanceHandle>
+}
+
+impl Sound {
+    pub fn new<A: AsRef<std::path::Path>>(path: A, manager: &mut AudioManager) -> Self {
+        let sound = manager.load_sound(path, <_>::default()).unwrap();
+
+        Self {
+            sound,
+            instance: None,
+        }
+    }
+
+    pub fn is_playing(&self) -> bool {
+        !self.instance.as_ref().filter(|instance| instance.state() != kira::instance::InstanceState::Stopped).is_none()
+    }
+
+    pub fn play(&mut self) {
+        self.instance.replace(self.sound.play(<_>::default()).unwrap());
+    }
+
+    pub fn stop(&mut self) {
+        self.sound.stop(<_>::default()).unwrap()
     }
 }
 
@@ -147,6 +168,46 @@ impl SpaceInvaders {
         self.cpu = cpu;
     }
 
+    fn update(&mut self, frame: &mut [u8]) {
+        self.emulate();
+        let mut frame = frame.chunks_exact_mut(4).collect::<Vec<&mut [u8]>>();
+        let framebuffer = self.framebuffer();
+
+        let mut i = 0;
+        for x in 0..WIDTH {
+            for y in (0..HEIGHT).step_by(8) {
+                let byte = framebuffer[i];
+                i += 1;
+
+                for shift in 0..8 {
+                    let result = if (byte >> shift) & 1 == 0 {
+                        [0, 0, 0, 255]
+                    } else if y <= 63 && (y >= 15 || y <= 15 && x >= 20 && x <= 120) {
+                        [0, 255, 0, 255]
+                    } else if y >= 200 && y <= 220 {
+                        [255, 0, 0, 255]
+                    } else {
+                        [255; 4]
+                    };
+
+                    frame[(((HEIGHT - 1 - y) * WIDTH) + x - (WIDTH * shift)) as usize].copy_from_slice(&result);
+                }
+            }
+        }
+
+        //     // Really x is y and y is x as the frame is rotated 90 degrees
+        //     let y = i * 8 / (WIDTH as usize + 1);
+        //     for shift in 0..SHIFT_END + 1 {
+        //         let x = ((i * 8) % (WIDTH as usize)) + shift as usize;
+
+
+        //         let result = &[x as u8, x as u8, x as u8, x as u8][..];
+
+        //         frame[x - y].copy_from_slice(&result);
+        //     }
+        // }
+    }
+
     fn try_interrupt(&mut self, cpu: &mut Cpu) {
         self.interrupt_num = !self.interrupt_num;
         if !cpu.int_enable {
@@ -159,42 +220,42 @@ impl SpaceInvaders {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Input) {
-        match *event {
-            Input::Button(ButtonArgs {
-                state: ButtonState::Press,
-                button: Button::Keyboard(key),
-                scancode: _,
-            }) => self.keydown(key),
-            Input::Button(ButtonArgs {
-                state: ButtonState::Release,
-                button: Button::Keyboard(key),
-                scancode: _,
-            }) => self.keyup(key),
+    pub fn handle_event(&mut self, event: KeyboardInput) {
+        match event {
+            KeyboardInput {
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(key),
+                ..
+            } => self.keydown(key),
+            KeyboardInput {
+                state: winit::event::ElementState::Released,
+                virtual_keycode: Some(key),
+                ..
+            } => self.keyup(key),
             _ => {}
         }
     }
 
-    fn keydown(&mut self, key: Key) {
+    fn keydown(&mut self, key: VirtualKeyCode) {
         match key {
-            Key::Left | Key::A => self.first_port |= LEFT,
-            Key::C => self.first_port |= CREDIT,
-            Key::Right | Key::D => self.first_port |= RIGHT,
-            Key::Space | Key::F => self.first_port |= FIRE,
-            Key::D1 => self.first_port |= P1_START,
-            Key::D2 => self.first_port |= P2_START,
+            VirtualKeyCode::Left | VirtualKeyCode::A => self.first_port |= LEFT,
+            VirtualKeyCode::C => self.first_port |= CREDIT,
+            VirtualKeyCode::Right | VirtualKeyCode::D => self.first_port |= RIGHT,
+            VirtualKeyCode::Space | VirtualKeyCode::F => self.first_port |= FIRE,
+            VirtualKeyCode::Key1 => self.first_port |= P1_START,
+            VirtualKeyCode::Key2 => self.first_port |= P2_START,
             _ => {}
         }
     }
 
-    fn keyup(&mut self, key: Key) {
+    fn keyup(&mut self, key: VirtualKeyCode) {
         match key {
-            Key::Left | Key::A => self.first_port &= !LEFT,
-            Key::C => self.first_port &= !CREDIT,
-            Key::Right | Key::D => self.first_port &= !RIGHT,
-            Key::Space | Key::F => self.first_port &= !FIRE,
-            Key::D1 => self.first_port &= !P1_START,
-            Key::D2 => self.first_port &= !P2_START,
+            VirtualKeyCode::Left | VirtualKeyCode::A => self.first_port &= !LEFT,
+            VirtualKeyCode::C => self.first_port &= !CREDIT,
+            VirtualKeyCode::Right | VirtualKeyCode::D => self.first_port &= !RIGHT,
+            VirtualKeyCode::Space | VirtualKeyCode::F => self.first_port &= !FIRE,
+            VirtualKeyCode::Key1 => self.first_port &= !P1_START,
+            VirtualKeyCode::Key2 => self.first_port &= !P2_START,
             _ => {}
         }
     }
@@ -296,6 +357,58 @@ impl Machine for SpaceInvaders {
     }
 }
 
+fn main() {
+    let mut machine = SpaceInvaders::new();
+
+    let event_loop = EventLoop::new();
+
+    let window = {
+        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+        // let scaled_size = LogicalSize::new(WIDTH as f64 * 3.0, HEIGHT as f64 * 3.0);
+        WindowBuilder::new()
+            .with_title("Space Invaders")
+            .with_inner_size(size)
+            .build(&event_loop)
+            .unwrap()
+    };
+
+    let mut pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
+    };
+
+    machine.update(pixels.get_frame());
+    event_loop.run(move |event, _, control_flow| {
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
+                    input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), ..  },
+                    ..
+                },
+                ..
+            } => {
+                println!("The close button was pressed; stopping");
+                *control_flow = ControlFlow::Exit
+            },
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput{ input, ..},
+                ..
+            } => {
+                machine.handle_event(input);
+                machine.update(pixels.get_frame());
+            },
+            Event::RedrawRequested(_) => {
+                machine.update(pixels.get_frame());
+                pixels.render().unwrap();
+            }
+            _ => ()
+        }
+
+        window.request_redraw();
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,67 +425,3 @@ mod tests {
         assert_eq!(machine.input(3), 0xff);
     }
 }
-
-fn main() {
-    let mut buffer = RgbaImage::new(WIDTH, HEIGHT);
-    let mut machine = SpaceInvaders::new();
-
-    let (mut window, mut texture) = {
-        update(&mut machine, &mut buffer);
-
-        let mut window: PistonWindow =
-            WindowSettings::new("SpaceInvaders", [HEIGHT, WIDTH])
-            .exit_on_esc(true)
-            .opengl(OpenGL::V3_2)
-            .build()
-            .unwrap();
-
-        let texture = Texture::from_image(
-            &mut window.factory,
-            &buffer,
-            &TextureSettings::new()
-        ).unwrap();
-        (window, texture)
-    };
-
-    while let Some(e) = window.next() {
-        update(&mut machine, &mut buffer);
-
-        if let Event::Input(ref i) = e {
-            machine.handle_event(i);
-        }
-
-        texture.update(&mut window.encoder, &buffer).unwrap();
-        window.draw_2d(&e, |_, g| {
-            clear([1.0; 4], g);
-            image(&texture, [[0., 2./HEIGHT as f64, -1.], [2./WIDTH as f64, 0., -1.]], g);
-        });
-    }
-}
-
-fn update(machine: &mut SpaceInvaders, buffer: &mut RgbaImage) {
-    machine.emulate();
-
-    for (i, byte) in machine.framebuffer().iter().enumerate() {
-        const SHIFT_END: u8 = 7;
-
-        // Really x is y and y is x as the frame is rotated 90 degrees
-        let y = i * 8 / (WIDTH as usize + 1);
-        for shift in 0..SHIFT_END + 1 {
-            let x = ((i * 8) % (WIDTH as usize)) + shift as usize;
-
-            let pixel = if (byte >> shift) & 1 == 0 {
-                [0, 0, 0, 255]
-            } else if x <= 63 && (x >= 15 || x <= 15 && y >= 20 && y <= 120) {
-                [0, 255, 0, 255]
-            } else if x >= 200 && x <= 220 {
-                [255, 0, 0, 255]
-            } else {
-                [255; 4]
-            };
-
-            buffer.put_pixel(x as u32, y as u32, image::Rgba(pixel));
-        }
-    }
-}
-

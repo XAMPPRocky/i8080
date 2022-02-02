@@ -1,5 +1,5 @@
-        use pointer::Pointer;
-        use register::Register;
+use crate::pointer::Pointer;
+use crate::register::Register;
 
 macro_rules! ops {
     ($(($name:ident, $num:tt))*) => {

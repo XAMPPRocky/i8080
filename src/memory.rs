@@ -1,5 +1,5 @@
 use std::ops::{Index, Range, RangeFrom};
-use pointer::Pointer;
+use crate::pointer::Pointer;
 
 pub struct Memory {
     pub memory: Vec<u8>,

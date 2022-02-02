@@ -1,10 +1,10 @@
 use std::{fmt, mem};
 
-use condition_codes::ConditionCodes;
-use opcode::Opcode;
-use memory::Memory;
-use register::Register;
-use pointer::Pointer;
+use crate::condition_codes::ConditionCodes;
+use crate::opcode::Opcode;
+use crate::memory::Memory;
+use crate::register::Register;
+use crate::pointer::Pointer;
 
 #[derive(Default)]
 pub struct Cpu {
@@ -250,8 +250,7 @@ impl Cpu {
                     $hl => self.get_offset().into(),
                     $a => self.a,
                     _ => unreachable!(),
-                };
-
+                }
             }
         }
 
